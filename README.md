@@ -1,4 +1,4 @@
-# Project no 4: Hovercraft: control laws variant
+# Project Name: Hovercraft: control laws variant
 
 ## Description
 
