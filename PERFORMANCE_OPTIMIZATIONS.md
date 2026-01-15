@@ -12,9 +12,13 @@ The following optimizations were implemented to improve computational efficiency
 - Once in the main script for each simulation section (lines 52-54, 103-105)
 - Inside each ODE function call during integration (lines 147-149, 183-185)
 
-**Solution:** Pre-compute these derivatives once at initialization (lines 21-23):
+**Note:** The formulas `du_ref = 1-(u_ref)^2` and `dv_ref = 1-(v_ref)^2` are part of the flatness-based control formulation from the referenced papers (Fantoni et al., 1999; Sira-Ramírez and Aguilar Ibáñez, 2000), not standard calculus derivatives of the reference trajectories. These represent the time derivatives in the augmented kinematic model.
+
+**Solution:** Pre-compute these derivatives once at initialization (lines 21-24):
 ```matlab
 % Pre-compute derivatives of reference trajectories
+% Note: These formulas (1-u_ref^2, 1-v_ref^2) are from the original
+% flatness-based control formulation
 du_ref_tmp = 1-(u_ref).^2;
 dv_ref_tmp = 1-(v_ref).^2;
 ddv_ref_tmp = -2.*v_ref.*dv_ref_tmp;

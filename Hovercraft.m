@@ -12,13 +12,15 @@ tfinal = 20;
 % Conditions initiales
 u0 = 2;  v0 = 3; r0 = 1.0;
 
-% Pre-compute reference trajectories once
+% Reference trajectories for the hovercraft control system
 tmp=linspace(0,10,100);
 v_h = 5; v_l = 3; tmp_0 = 5;
 u_ref = v_l + (v_h - v_l) * tanh(tmp - tmp_0);
 v_ref = v_l + (v_h - v_l) * tanh(tmp - tmp_0);
 
 % Pre-compute derivatives of reference trajectories
+% Note: These formulas (1-u_ref^2, 1-v_ref^2) are from the original
+% flatness-based control formulation, not standard calculus derivatives
 du_ref_tmp = 1-(u_ref).^2;
 dv_ref_tmp = 1-(v_ref).^2;
 ddv_ref_tmp = -2.*v_ref.*dv_ref_tmp;
