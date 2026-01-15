@@ -12,10 +12,18 @@ tfinal = 20;
 % Conditions initiales
 u0 = 2;  v0 = 3; r0 = 1.0;
 
+% Reference trajectories for the hovercraft control system
 tmp=linspace(0,10,100);
 v_h = 5; v_l = 3; tmp_0 = 5;
 u_ref = v_l + (v_h - v_l) * tanh(tmp - tmp_0);
 v_ref = v_l + (v_h - v_l) * tanh(tmp - tmp_0);
+
+% Pre-compute derivatives of reference trajectories
+% Note: These formulas (1-u_ref^2, 1-v_ref^2) are from the original
+% flatness-based control formulation, not standard calculus derivatives
+du_ref_tmp = 1-(u_ref).^2;
+dv_ref_tmp = 1-(v_ref).^2;
+ddv_ref_tmp = -2.*v_ref.*dv_ref_tmp;
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Sans Bruit  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Resolution de l'EDO
@@ -23,7 +31,7 @@ disp('aircraft simulation');
 relTol = 1e-4;    absTol = 1e-7;    
 options = odeset('RelTol', relTol, 'AbsTol', absTol);
 %options=[];
-[ts,Xs] = ode23tb(@(t,X) hovercraft(t,X,G,tmp,u_ref,v_ref), [0 tfinal], [u0 v0 r0],...
+[ts,Xs] = ode23tb(@(t,X) hovercraft(t,X,G,tmp,u_ref,v_ref,du_ref_tmp,dv_ref_tmp,ddv_ref_tmp), [0 tfinal], [u0 v0 r0],...
                                                                                   options);
 % extraction sources
 u=Xs(:,1); v=Xs(:,2); r=Xs(:,3);
@@ -46,16 +54,16 @@ xlabel('temps (s)'); ylabel('etat v');
 title(' etat r ','FontWeight','bold');
 
 
-u_ref=interp1(tmp,u_ref,ts);
-v_ref=interp1(tmp,v_ref,ts);
-
-du_ref = 1-(u_ref).^2;
-dv_ref = 1-(v_ref).^2;
-ddv_ref = -2.*v_ref.*dv_ref;
+% Interpolate reference trajectories to simulation time points
+u_ref_interp=interp1(tmp,u_ref,ts);
+v_ref_interp=interp1(tmp,v_ref,ts);
+du_ref = interp1(tmp,du_ref_tmp,ts);
+dv_ref = interp1(tmp,dv_ref_tmp,ts);
+ddv_ref = interp1(tmp,ddv_ref_tmp,ts);
 
 % calcul des commandes
-tau_u = du_ref - G.lambda_1.*(u - u_ref)- v.*r;
-tau_r = -(1./(u + epsilon)).*( ddv_ref - G.lambda_2.*(v - v_ref) - G.lambda_3.*(- u.*r - dv_ref) + v.*(r.^2) + tau_u.*r);
+tau_u = du_ref - G.lambda_1.*(u - u_ref_interp)- v.*r;
+tau_r = -(1./(u + epsilon)).*( ddv_ref - G.lambda_2.*(v - v_ref_interp) - G.lambda_3.*(- u.*r - dv_ref) + v.*(r.^2) + tau_u.*r);
   
 % commandes tau_u
 subplot(234); plot(ts, tau_u,'b', 'LineWidth', 2); grid; 
@@ -74,7 +82,7 @@ disp('aircraft simulation');
 relTol = 1e-4;    absTol = 1e-7;    
 options = odeset('RelTol', relTol, 'AbsTol', absTol);
 %options=[];
-[ts,Xs] = ode23tb(@(t,X) hovercraftBruit(t,X,G,tmp,u_ref,v_ref), [0 tfinal], [u0 v0 r0],...
+[ts,Xs] = ode23tb(@(t,X) hovercraftBruit(t,X,G,tmp,u_ref,v_ref,du_ref_tmp,dv_ref_tmp,ddv_ref_tmp), [0 tfinal], [u0 v0 r0],...
                                                                                   options);
 % extraction sources
 u=Xs(:,1); v=Xs(:,2); r=Xs(:,3);
@@ -97,16 +105,21 @@ xlabel('temps (s)'); ylabel('etat v');
 title(' etat r ','FontWeight','bold');
 
 
-u_ref=interp1(tmp,u_ref,ts);
-v_ref=interp1(tmp,v_ref,ts);
+% Interpolate reference trajectories to simulation time points
+u_ref_interp=interp1(tmp,u_ref,ts);
+v_ref_interp=interp1(tmp,v_ref,ts);
+du_ref = interp1(tmp,du_ref_tmp,ts);
+dv_ref = interp1(tmp,dv_ref_tmp,ts);
+ddv_ref = interp1(tmp,ddv_ref_tmp,ts);
 
-du_ref = 1-(u_ref).^2;
-dv_ref = 1-(v_ref).^2;
-ddv_ref = -2.*v_ref.*dv_ref;
+% Compute noise terms for plotting
+Bruit_u = 0.96*sin(0.1*u)+ sin(10*u); 
+Bruit_v = -0.96*sin(0.1*v)+sin(10*v); 
+Bruit_r = 0.96*sin(0.1*r)+sin(10*r);
 
   % calcul des commandes
-  tau_u = du_ref - G.lambda_1.*((u + Bruit_u) - u_ref)- (v + Bruit_v).*(r + Bruit_r);
-  tau_r = -(1./((u + Bruit_u) + epsilon)).*( ddv_ref - G.lambda_2.*((v + Bruit_v) - v_ref) - G.lambda_3.*(-(u + Bruit_u).*(r + Bruit_r) - dv_ref) + (v + Bruit_v).*((r + Bruit_r).^2) + tau_u.*(r + Bruit_r));
+  tau_u = du_ref - G.lambda_1.*((u + Bruit_u) - u_ref_interp)- (v + Bruit_v).*(r + Bruit_r);
+  tau_r = -(1./((u + Bruit_u) + epsilon)).*( ddv_ref - G.lambda_2.*((v + Bruit_v) - v_ref_interp) - G.lambda_3.*(-(u + Bruit_u).*(r + Bruit_r) - dv_ref) + (v + Bruit_v).*((r + Bruit_r).^2) + tau_u.*(r + Bruit_r));
   
 % commandes tau_u
 subplot(234); plot(ts, tau_u,'b', 'LineWidth', 2); grid; 
@@ -120,7 +133,7 @@ title('Control TauR');
 
 
 
-function [dotX]= hovercraft(t, X , G, tmp, u_ref, v_ref)
+function [dotX]= hovercraft(t, X , G, tmp, u_ref, v_ref, du_ref_tmp, dv_ref_tmp, ddv_ref_tmp)
 %global i
 
 %current stat
@@ -133,9 +146,9 @@ epsilon = 1e-6;
 u_ref=interp1(tmp,u_ref,t);
 v_ref=interp1(tmp,v_ref,t);
 
-du_ref = 1-(u_ref)^2;
-dv_ref = 1-(v_ref)^2;
-ddv_ref = -2*v_ref*dv_ref;
+du_ref = interp1(tmp,du_ref_tmp,t);
+dv_ref = interp1(tmp,dv_ref_tmp,t);
+ddv_ref = interp1(tmp,ddv_ref_tmp,t);
 
 % calcul des commandes
 tau_u = du_ref - G.lambda_1.*(u - u_ref)- v.*r;
@@ -153,7 +166,7 @@ dotX = [dotu dotv dotr]';
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 end
 
-function [dotX] = hovercraftBruit(t, X , G, tmp, u_ref, v_ref)
+function [dotX] = hovercraftBruit(t, X , G, tmp, u_ref, v_ref, du_ref_tmp, dv_ref_tmp, ddv_ref_tmp)
 %global i
 
 %current stat
@@ -169,9 +182,9 @@ Bruit_r = 0.96*sin(0.1*r)+sin(10*r) ;
 u_ref=interp1(tmp,u_ref,t);
 v_ref=interp1(tmp,v_ref,t);
 
-du_ref = 1-(u_ref)^2;
-dv_ref = 1-(v_ref)^2;
-ddv_ref = -2*v_ref*dv_ref;
+du_ref = interp1(tmp,du_ref_tmp,t);
+dv_ref = interp1(tmp,dv_ref_tmp,t);
+ddv_ref = interp1(tmp,ddv_ref_tmp,t);
 
 % calcul des commandes
 tau_u = du_ref - G.lambda_1.*((u + Bruit_u) - u_ref)- (v + Bruit_v).*(r + Bruit_r);

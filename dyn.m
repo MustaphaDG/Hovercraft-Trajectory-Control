@@ -4,7 +4,7 @@ function [dotX] = dyn(t, X, lambda_1,lambda_2,lambda_3,tmps,u_r,v_r)
 
   % récuperation des variables d'etat
   u = X(1,:);  v = X(2,:); r = X(3,:);
-  epsilon = 0.00000001;
+  epsilon = 1e-6;
   
   u_r = interp1(tmps,u_r,t);
   v_r = interp1(tmps,v_r,t);
